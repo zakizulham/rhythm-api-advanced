@@ -5,8 +5,14 @@ import routes from './routes.js';
 const albumsPlugin = {
   name: 'albums',
   version: '1.0.0',
-  register: async (server, { service, validator }) => {
-    const albumsHandler = new AlbumsHandler(service, validator);
+  register: async (server, { service, songsService, storageService, validator, uploadsValidator }) => {
+    const albumsHandler = new AlbumsHandler(
+      service,
+      songsService,
+      storageService,
+      validator,
+      uploadsValidator,
+    );
     server.route(routes(albumsHandler));
   },
 };

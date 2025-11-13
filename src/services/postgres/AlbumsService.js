@@ -25,11 +25,10 @@ class AlbumsService {
     return result.rows[0].id;
   }
 
-  // --- INI FUNGSI YANG KITA MODIFIKASI ---
   async getAlbumById(id) {
     // 1. Ambil data albumnya dulu
     const albumQuery = {
-      text: 'SELECT id, name, year FROM albums WHERE id = $1',
+      text: 'SELECT id, name, year, "coverUrl" FROM albums WHERE id = $1',
       values: [id],
     };
     const albumResult = await this._pool.query(albumQuery);
@@ -39,7 +38,6 @@ class AlbumsService {
     }
 
     // 2. Ambil semua lagu yang ada di album itu
-    // (sesuai Kriteria Opsional 1, cuma butuh id, title, performer)
     const songsQuery = {
       text: 'SELECT id, title, performer FROM songs WHERE album_id = $1',
       values: [id],
@@ -48,11 +46,10 @@ class AlbumsService {
 
     // 3. Gabungin datanya jadi satu objek
     const album = albumResult.rows[0];
-    album.songs = songsResult.rows; // Tambahin array 'songs' ke objek 'album'
+    album.songs = songsResult.rows;
 
     return album;
   }
-  // --- BATAS MODIFIKASI ---
 
   async editAlbumById(id, { name, year }) {
     const query = {
@@ -77,6 +74,19 @@ class AlbumsService {
 
     if (!result.rowCount) {
       throw new NotFoundError('Album gagal dihapus. Id tidak ditemukan');
+    }
+  }
+
+  async addCoverAlbumById(id, coverUrl) {
+    const query = {
+      text: 'UPDATE albums SET "coverUrl" = $1 WHERE id = $2 RETURNING id',
+      values: [coverUrl, id],
+    };
+
+    const result = await this._pool.query(query);
+
+    if (!result.rowCount) {
+      throw new NotFoundError('Gagal memperbarui cover album. Id tidak ditemukan');
     }
   }
 }
