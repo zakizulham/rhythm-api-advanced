@@ -25,3 +25,9 @@ Thumbs.db
 # Build output
 /dist
 /build
+
+# Uploads (User Generated Content)
+/public/uploads/*
+
+# pertahankan struktur foldernya biar ada
+!/public/uploads/.gitkeep
