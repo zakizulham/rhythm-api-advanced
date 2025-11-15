@@ -13,7 +13,7 @@ class StorageService {
   }
 
   writeFile(file, meta) {
-    const filename = +new Date() + meta.filename; // Kasih timestamp biar unik
+    const filename = +new Date() + meta.filename;
     const path = `${this._folder}/${filename}`;
 
     const fileStream = fs.createWriteStream(path);
@@ -21,7 +21,7 @@ class StorageService {
     return new Promise((resolve, reject) => {
       fileStream.on('error', (error) => reject(error));
       file.pipe(fileStream);
-      file.on('end', () => resolve(filename)); // Balikin nama filenya aja
+      file.on('end', () => resolve(filename));
     });
   }
 }
