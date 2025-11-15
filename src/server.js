@@ -15,6 +15,8 @@ import authenticationsPlugin from './api/authentications/index.js';
 import playlistsPlugin from './api/playlists/index.js';
 import collaborationsPlugin from './api/collaborations/index.js';
 import activitiesPlugin from './api/activities/index.js';
+import likesPlugin from './api/likes/index.js';
+import CacheService from './services/cache/CacheService.js';
 
 // --- IMPORTS: SERVICES ---
 import AlbumsService from './services/postgres/AlbumsService.js';
@@ -44,8 +46,9 @@ const __dirname = path.dirname(__filename);
 
 const init = async () => {
 
+  const cacheService = new CacheService();
   const collaborationsService = new CollaborationsService();
-  const albumsService = new AlbumsService();
+  const albumsService = new AlbumsService(CacheService);
   const songsService = new SongsService();
   const usersService = new UsersService();
   const authenticationsService = new AuthenticationsService();
@@ -63,7 +66,7 @@ const init = async () => {
     },
   });
 
-  // buat nangkep semua error di satu tempat, jadi ga usah try-catch di tiap handler
+  // tangkep semua error di satu tempat, jadi ga usah try-catch di tiap handler
   server.ext('onPreResponse', (request, h) => {
     const { response } = request;
 
@@ -101,16 +104,9 @@ const init = async () => {
     return h.continue;
   });
 
-  await server.register([
-    {
-      plugin: Jwt,
-    },
-    {
-      plugin: Inert,
-    }
-  ]);
+  await server.register([Jwt, Inert]);
 
-  // Definisikan strategi autentikasi JWT
+  // Strategi autentikasi jwt
   server.auth.strategy('openmusic_jwt', 'jwt', {
     keys: process.env.ACCESS_TOKEN_KEY,
     verify: {
@@ -132,13 +128,13 @@ const init = async () => {
   {
     plugin: albumsPlugin,
     options: {
-      service: albumsService,
+        service: albumsService,
         songsService: songsService,
         storageService: storageService,
         validator: AlbumsValidator,
         uploadsValidator: UploadsValidator,
       },
-  },
+    },
   {
     plugin: songsPlugin,
     options: {
@@ -185,7 +181,13 @@ const init = async () => {
       activitiesService,
     },
   },
-  ]);
+  {
+    plugin: likesPlugin,
+    options: {
+      albumsService,
+    },
+  },
+]);
 
   // Rute buat akses file statis (gambar)
   server.route({
