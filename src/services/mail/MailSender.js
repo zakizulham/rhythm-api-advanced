@@ -26,7 +26,7 @@ class MailSender {
             attachments: [
                 {
                     filename: 'playlist.json',
-                    content: content,
+                    content,
                     contentType: 'application/json',
                 },
             ],
