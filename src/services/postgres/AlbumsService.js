@@ -188,6 +188,19 @@ class AlbumsService {
       return { count: likeCount, isCache: false };
     }
   }
+
+  async addAlbumCoverById(id, coverUrl) {
+    const query = {
+      // pake "coverUrl" karena kita pake camelcase di migrasi
+      text: 'UPDATE albums SET "coverUrl" = $1 WHERE id = $2 RETURNING id',
+      values: [coverUrl, id],
+    };
+    const result = await this._pool.query(query);
+
+    if (!result.rowCount) {
+      throw new NotFoundError('Gagal memperbarui sampul. Album tidak ditemukan');
+    }
+  }
 }
 
 export default AlbumsService;

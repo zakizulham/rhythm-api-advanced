@@ -48,7 +48,7 @@ const init = async () => {
 
   const cacheService = new CacheService();
   const collaborationsService = new CollaborationsService();
-  const albumsService = new AlbumsService(CacheService);
+  const albumsService = new AlbumsService(cacheService);
   const songsService = new SongsService();
   const usersService = new UsersService();
   const authenticationsService = new AuthenticationsService();
@@ -104,7 +104,14 @@ const init = async () => {
     return h.continue;
   });
 
-  await server.register([Jwt, Inert]);
+  await server.register([
+    {
+      plugin: Jwt,
+    },
+    {
+      plugin: Inert, 
+    },
+  ]);
 
   // Strategi autentikasi jwt
   server.auth.strategy('openmusic_jwt', 'jwt', {
@@ -192,7 +199,7 @@ const init = async () => {
   // Rute buat akses file statis (gambar)
   server.route({
     method: 'GET',
-    path: '/upload/images/{param*}',
+    path: '/albums/covers/{param*}',
     handler: {
       directory: {
         path: path.resolve(__dirname, '../public/uploads/albums'),

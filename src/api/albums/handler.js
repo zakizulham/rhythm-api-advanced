@@ -57,16 +57,24 @@ class AlbumsHandler {
   }
 
   async postUploadCoverHandler(request, h) {
+    // 1. Ambil 'cover' dari payload. 'cover' itu adalah stream filenya.
     const { cover } = request.payload;
-    const { id } = request.params;
+    const { id: albumId } = request.params;
 
-    this._uploadsValidator.validateImageHeaders(cover.hapi.headers);
+    // 2. Ambil metadata (headers & filename) dari stream 'cover'
+    const { headers, filename: metaFilename } = cover.hapi;
 
-    const filename = await this._storageService.writeFile(cover, cover.hapi);
+    // 3. Validasi headernya
+    this._uploadsValidator.validateImageHeaders(headers);
 
-    const coverUrl = `http://${process.env.HOST}:${process.env.PORT}/upload/images/${filename}`;
+    // 4. Simpen filenya (kirim stream 'cover' & metadata-nya)
+    const filename = await this._storageService.writeFile(cover, { filename: metaFilename });
 
-    await this._service.addCoverAlbumById(id, coverUrl);
+    // 5. Bikin URL (pastiin path-nya /albums/covers/, sesuai server.js)
+    const coverUrl = `http://${process.env.HOST}:${process.env.PORT}/albums/covers/${filename}`;
+
+    // 6. Update database
+    await this._service.addAlbumCoverById(albumId, coverUrl);
 
     const response = h.response({
       status: 'success',

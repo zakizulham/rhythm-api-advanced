@@ -1,6 +1,4 @@
 // src/api/likes/routes.js
-
-import { version } from 'react';
 import AlbumLikesHandler from './handler.js';
 import routes from './routes.js';
 
