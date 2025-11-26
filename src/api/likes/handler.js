@@ -1,14 +1,14 @@
 // src/api/likes/handler.js
-class AlbumLikesHandler {
-  constructor(albumsService) {
-    this._albumsService = albumsService;
+class LikesHandler {
+  constructor(service) {
+    this._service = service;
   }
 
-  async postAlbumLikeHandler(request, h) {
+  async postLikeHandler(request, h) {
     const { id: albumId } = request.params;
     const { id: credentialId } = request.auth.credentials;
 
-    await this._albumsService.addAlbumLike(albumId, credentialId);
+    await this._service.addAlbumLike(albumId, credentialId);
 
     const response = h.response({
       status: 'success',
@@ -17,12 +17,12 @@ class AlbumLikesHandler {
     response.code(201);
     return response;
   }
-  
-  async deleteAlbumLikeHandler(request) {
+
+  async deleteLikeHandler(request) {
     const { id: albumId } = request.params;
     const { id: credentialId } = request.auth.credentials;
 
-    await this._albumsService.deleteAlbumLike(albumId, credentialId);
+    await this._service.deleteAlbumLike(albumId, credentialId);
 
     return {
       status: 'success',
@@ -30,25 +30,25 @@ class AlbumLikesHandler {
     };
   }
 
-  async getAlbumLikesHandler(request, h) {
+  async getLikesHandler(request, h) {
     const { id: albumId } = request.params;
-    const { count, isCache } = await this._albumsService.getAlbumLikes(albumId);
+    const { likes, isCache } = await this._service.getAlbumLikes(albumId);
 
     const response = h.response({
       status: 'success',
       data: {
-        likes: count,
+        likes,
       },
     });
-    
-    // Kriteria 4: Kalo dari cache, kasih header X-Data-Source
+
+    // Kriteria 4: Custom Header
     if (isCache) {
       response.header('X-Data-Source', 'cache');
     }
-    
+
     response.code(200);
     return response;
   }
 }
 
-export default AlbumLikesHandler;
+export default LikesHandler;

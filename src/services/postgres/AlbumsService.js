@@ -2,11 +2,11 @@
 import { nanoid } from 'nanoid';
 import InvariantError from '../../exceptions/InvariantError.js';
 import NotFoundError from '../../exceptions/NotFoundError.js';
-import ClientError from '../../exceptions/ClientError.js';
+import ClientError from '../../exceptions/ClientError.js'; // Kita butuh ini buat cek error like ganda
 import pool from './Pool.js';
 
 class AlbumsService {
-  
+  // 1. TERIMA cacheService DI SINI
   constructor(cacheService) {
     this._pool = pool;
     this._cacheService = cacheService;
@@ -14,12 +14,10 @@ class AlbumsService {
 
   async addAlbum({ name, year }) {
     const id = `album-${nanoid(16)}`;
-    
     const query = {
       text: 'INSERT INTO albums VALUES($1, $2, $3) RETURNING id',
       values: [id, name, year],
     };
-
     const result = await this._pool.query(query);
 
     if (!result.rows[0].id) {
@@ -29,29 +27,17 @@ class AlbumsService {
   }
 
   async getAlbumById(id) {
-    // 1. Ambil data albumnya dulu
-    const albumQuery = {
+    const query = {
+      // Sekalian ambil coverUrl (karena kolomnya udah ada sekarang)
       text: 'SELECT id, name, year, "coverUrl" FROM albums WHERE id = $1',
       values: [id],
     };
-    const albumResult = await this._pool.query(albumQuery);
+    const result = await this._pool.query(query);
 
-    if (!albumResult.rowCount) {
+    if (!result.rowCount) {
       throw new NotFoundError('Album tidak ditemukan');
     }
-
-    // 2. Ambil semua lagu yang ada di album itu
-    const songsQuery = {
-      text: 'SELECT id, title, performer FROM songs WHERE album_id = $1',
-      values: [id],
-    };
-    const songsResult = await this._pool.query(songsQuery);
-
-    // 3. Gabungin datanya jadi satu objek
-    const album = albumResult.rows[0];
-    album.songs = songsResult.rows;
-
-    return album;
+    return result.rows[0];
   }
 
   async editAlbumById(id, { name, year }) {
@@ -59,7 +45,6 @@ class AlbumsService {
       text: 'UPDATE albums SET name = $1, year = $2 WHERE id = $3 RETURNING id',
       values: [name, year, id],
     };
-
     const result = await this._pool.query(query);
 
     if (!result.rowCount) {
@@ -72,7 +57,6 @@ class AlbumsService {
       text: 'DELETE FROM albums WHERE id = $1 RETURNING id',
       values: [id],
     };
-
     const result = await this._pool.query(query);
 
     if (!result.rowCount) {
@@ -80,72 +64,37 @@ class AlbumsService {
     }
   }
 
-  async addCoverAlbumById(id, coverUrl) {
-    const query = {
-      text: 'UPDATE albums SET "coverUrl" = $1 WHERE id = $2 RETURNING id',
-      values: [coverUrl, id],
-    };
-
-    const result = await this._pool.query(query);
-
-    if (!result.rowCount) {
-      throw new NotFoundError('Gagal memperbarui cover album. Id tidak ditemukan');
-    }
-  }
-
-  async verifyAlbumLike(albumId, userId) {
-
-    // Method untuk cek udah pernah like album apa belum
-    const query = {
-      text: 'SELECT * FROM user_album_likes WHERE album_id = $1 AND user_id = $2',
-      values: [albumId, userId],
-    };
-
-    const result = await this._pool.query(query);
-
-    if (result.rowCount) {
-      throw new ClientError('Anda sudah menyukai album ini');
-    }
-  }
+  // --- FITUR LIKES V3 ---
 
   async addAlbumLike(albumId, userId) {
-  // Nambah data like ke tabel user_album_likes
-    
-    // cek albumnya ada atau nggak
+    // Cek dulu albumnya ada gak
     await this.getAlbumById(albumId);
 
-    // cek biar gak like dua kali
-    try {
-      await this.verifyAlbumLike(albumId, userId);
-    }
-
-    catch (error) {
-      if (error instanceof ClientError) {
-        throw error;
-      }
-
-      // jika error clientError (400 dari verifyAlbumLike) berarti beneran udah like
-      throw new InvariantError('Gagal menambah like. Anda sudah menyukai album ini.');
-    }
-
+    // Cek udah like belum (Query SQL langsung cek constraint unique)
     const id = `like-${nanoid(16)}`;
     const query = {
       text: 'INSERT INTO user_album_likes VALUES($1, $2, $3) RETURNING id',
       values: [id, userId, albumId],
     };
 
-    const result = await this._pool.query(query);
-
-    if (!result.rows[0].id) {
-      throw new InvariantError('Like gagal ditambahkan');
+    try {
+      const result = await this._pool.query(query);
+      if (!result.rows[0].id) {
+        throw new InvariantError('Like gagal ditambahkan');
+      }
+    } catch (error) {
+      // Tangkep error constraint unique dari Postgres
+      if (error.constraint === 'unique_user_album_likes') { 
+        throw new InvariantError('Anda sudah menyukai album ini');
+      }
+      throw error;
     }
 
-    // 2. HAPUS cache kalo berhasil nambah like
-    await this._cacheService.delete(`album-likes:${albumId}`);
+    // HAPUS CACHE (biar data baru ke-load nanti)
+    await this._cacheService.delete(`likes:${albumId}`);
   }
 
   async deleteAlbumLike(albumId, userId) {
-    // Hapus like
     const query = {
       text: 'DELETE FROM user_album_likes WHERE album_id = $1 AND user_id = $2 RETURNING id',
       values: [albumId, userId],
@@ -154,51 +103,42 @@ class AlbumsService {
     const result = await this._pool.query(query);
 
     if (!result.rowCount) {
-      throw new NotFoundError('Like gagal dihapus. Id tidak ditemukan');
+      throw new NotFoundError('Like gagal dihapus. Anda belum menyukai album ini');
     }
 
-    // HAPUS cache kalo berhasil hapus like
-    await this._cacheService.delete(`album-likes:${albumId}`);
+    // HAPUS CACHE
+    await this._cacheService.delete(`likes:${albumId}`);
   }
 
   async getAlbumLikes(albumId) {
-    // Coba ambil dari cache Redis dulu
     try {
-      const result = await this._cacheService.get(`album-likes:${albumId}`);
+      // 1. Coba ambil dari Redis
+      const result = await this._cacheService.get(`likes:${albumId}`);
       return {
-        count: parseInt(result, 10),
-        isCache: true,
+        likes: JSON.parse(result),
+        isCache: true, // Penanda buat header X-Data-Source
       };
     } catch (error) {
-
-      // kalo di cache gak ada, ambil dari database
-
-      // Cek albumnya ada atau nggak
+      // 2. Kalo gagal/gak ada, ambil dari DB
+      
+      // Cek album ada gak
       await this.getAlbumById(albumId);
 
       const query = {
         text: 'SELECT COUNT(*) FROM user_album_likes WHERE album_id = $1',
         values: [albumId],
       };
-
+      
       const result = await this._pool.query(query);
-      const likeCount = parseInt(result.rows[0].count, 10);
+      const likes = parseInt(result.rows[0].count, 10);
 
-      await this._cacheService.set(`album-likes:${albumId}`, likesCount, 1800);
-      return { count: likeCount, isCache: false };
-    }
-  }
+      // 3. Simpen ke Redis (30 menit)
+      await this._cacheService.set(`likes:${albumId}`, JSON.stringify(likes));
 
-  async addAlbumCoverById(id, coverUrl) {
-    const query = {
-      // pake "coverUrl" karena kita pake camelcase di migrasi
-      text: 'UPDATE albums SET "coverUrl" = $1 WHERE id = $2 RETURNING id',
-      values: [coverUrl, id],
-    };
-    const result = await this._pool.query(query);
-
-    if (!result.rowCount) {
-      throw new NotFoundError('Gagal memperbarui sampul. Album tidak ditemukan');
+      return {
+        likes,
+        isCache: false,
+      };
     }
   }
 }

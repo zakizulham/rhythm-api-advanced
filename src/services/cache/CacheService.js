@@ -6,14 +6,16 @@ class CacheService {
   constructor() {
     // Bikin koneksi ke Redis
     this._client = redis.createClient({
-      url: config.redis.host,
+      socket: {
+        host: config.redis.host,
+      },
     });
 
     this._client.on('error', (error) => {
       console.error(error);
     });
 
-    // Kita harus connect manual di v4
+    // Connect manual di v4
     this._client.connect();
   }
 
