@@ -15,6 +15,7 @@
 npm-debug.log*
 
 # Settingan Editor & OS
+.factory/
 .vscode/
 .DS_Store
 Thumbs.db
