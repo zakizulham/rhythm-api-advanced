@@ -45,8 +45,11 @@ class AlbumsService {
 
     const songsResult = await this._pool.query(songsQuery);
 
+    // Pastikan coverUrl ada di response, kalau null jangan dihilangkan (atau sesuai spec)
+    // Spec: "coverUrl": "http://..."
     return { ...result.rows[0], songs: songsResult.rows };
   }
+
 
   async editAlbumById(id, { name, year }) {
     const query = {

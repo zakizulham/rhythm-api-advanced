@@ -86,6 +86,16 @@ const init = async () => {
 
       // Kalo errornya bukan dari server (kayak 404 bawaan Hapi)
       if (!response.isServer) {
+        // NEW: Check for 413 specifically to match test expectation of 413 status code
+        if (response.output.statusCode === 413) {
+          const newResponse = h.response({
+            status: 'fail',
+            message: response.message,
+          });
+          newResponse.code(413);
+          return newResponse;
+        }
+
         const newResponse = h.response({
           status: 'fail',
           message: response.message,
@@ -93,6 +103,7 @@ const init = async () => {
         newResponse.code(response.output.statusCode);
         return newResponse;
       }
+
 
       const newResponse = h.response({
         status: 'error',
