@@ -2,7 +2,6 @@
 import { nanoid } from 'nanoid';
 import InvariantError from '../../exceptions/InvariantError.js';
 import NotFoundError from '../../exceptions/NotFoundError.js';
-import ClientError from '../../exceptions/ClientError.js'; // Jangan lupa ini
 import pool from './Pool.js';
 
 class AlbumsService {
@@ -12,7 +11,7 @@ class AlbumsService {
     this._cacheService = cacheService;
   }
 
-  // --- FITUR V2 (JANGAN DIUBAH) ---
+  // --- FITUR V2 ---
   async addAlbum({ name, year }) {
     const id = `album-${nanoid(16)}`;
     const query = {
@@ -38,7 +37,15 @@ class AlbumsService {
     if (!result.rowCount) {
       throw new NotFoundError('Album tidak ditemukan');
     }
-    return result.rows[0];
+
+    const songsQuery = {
+      text: 'SELECT id, title, performer FROM songs WHERE album_id = $1',
+      values: [id],
+    };
+
+    const songsResult = await this._pool.query(songsQuery);
+
+    return { ...result.rows[0], songs: songsResult.rows };
   }
 
   async editAlbumById(id, { name, year }) {
@@ -76,7 +83,7 @@ class AlbumsService {
     }
   }
 
-  // --- FITUR LIKES V3 (INI YANG BARU) ---
+  // --- FITUR LIKES V3 ---
 
   async addAlbumLike(albumId, userId) {
     await this.getAlbumById(albumId); // Cek album ada
@@ -94,7 +101,11 @@ class AlbumsService {
         throw new InvariantError('Gagal menyukai album');
       }
       // Hapus cache
-      await this._cacheService.delete(`likes:${albumId}`);
+      try {
+        await this._cacheService.delete(`likes:${albumId}`);
+      } catch (error) {
+        console.error(`Gagal menghapus cache untuk album ${albumId}:`, error.message);
+      }
     } catch (error) {
       if (error.constraint === 'unique_user_album_likes') {
         throw new InvariantError('Anda sudah menyukai album ini');
@@ -116,7 +127,11 @@ class AlbumsService {
     }
 
     // Hapus cache
-    await this._cacheService.delete(`likes:${albumId}`);
+    try {
+      await this._cacheService.delete(`likes:${albumId}`);
+    } catch (error) {
+      console.error(`Gagal menghapus cache untuk album ${albumId}:`, error.message);
+    }
   }
 
   async getAlbumLikes(albumId) {
@@ -127,7 +142,7 @@ class AlbumsService {
         likes: JSON.parse(result),
         isCache: true,
       };
-    } catch (error) {
+    } catch (_error) {
       // 2. Ambil DB
       await this.getAlbumById(albumId); // Cek album ada
 
@@ -140,7 +155,11 @@ class AlbumsService {
       const likes = parseInt(result.rows[0].count, 10);
 
       // 3. Simpan Cache
-      await this._cacheService.set(`likes:${albumId}`, JSON.stringify(likes));
+      try {
+        await this._cacheService.set(`likes:${albumId}`, JSON.stringify(likes));
+      } catch (error) {
+        console.error(`Gagal menyimpan cache untuk album ${albumId}:`, error.message);
+      }
 
       return {
         likes,

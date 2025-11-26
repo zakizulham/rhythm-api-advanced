@@ -1,4 +1,6 @@
 // src/api/albums/handler.js
+import InvariantError from '../../exceptions/InvariantError.js';
+
 class AlbumsHandler {
   constructor(service, songsService, storageService, validator, uploadsValidator) {
     this._service = service;
@@ -57,23 +59,25 @@ class AlbumsHandler {
   }
 
   async postUploadCoverHandler(request, h) {
-    // 1. Ambil 'cover' dari payload. 'cover' itu adalah stream filenya.
     const { cover } = request.payload;
-    const { id: albumId } = request.params;
+    if (!cover) {
+      throw new InvariantError('Cover is required');
+    }
 
-    // 2. Ambil metadata (headers & filename) dari stream 'cover'
-    const { headers, filename: metaFilename } = cover.hapi;
+    const { hapi } = cover;
+    if (!hapi) {
+      throw new InvariantError('Cover must be a file');
+    }
 
-    // 3. Validasi headernya
+    const { headers, filename: metaFilename } = hapi;
+
     this._uploadsValidator.validateImageHeaders(headers);
 
-    // 4. Simpen filenya (kirim stream 'cover' & metadata-nya)
     const filename = await this._storageService.writeFile(cover, { filename: metaFilename });
 
-    // 5. Bikin URL (pastiin path-nya /albums/covers/, sesuai server.js)
     const coverUrl = `http://${process.env.HOST}:${process.env.PORT}/albums/covers/${filename}`;
 
-    // 6. Update database
+    const { id: albumId } = request.params;
     await this._service.addAlbumCoverById(albumId, coverUrl);
 
     const response = h.response({
@@ -83,6 +87,7 @@ class AlbumsHandler {
     response.code(201);
     return response;
   }
+
 }
 
 export default AlbumsHandler;

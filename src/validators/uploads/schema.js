@@ -10,8 +10,10 @@ const ImageHeadersSchema = Joi.object({
       'image/jpeg',
       'image/png',
       'image/webp',
+      'image/jpg',
     )
     .required(),
 }).unknown();
+
 
 export { ImageHeadersSchema };

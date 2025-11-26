@@ -16,6 +16,7 @@ import playlistsPlugin from './api/playlists/index.js';
 import collaborationsPlugin from './api/collaborations/index.js';
 import activitiesPlugin from './api/activities/index.js';
 import likesPlugin from './api/likes/index.js';
+import exportsPlugin from './api/exports/index.js';
 import CacheService from './services/cache/CacheService.js';
 
 // --- IMPORTS: SERVICES ---
@@ -27,6 +28,7 @@ import PlaylistsService from './services/postgres/PlaylistsService.js';
 import CollaborationsService from './services/postgres/CollaborationsService.js';
 import PlaylistActivitiesService from './services/postgres/PlaylistActivitiesService.js';
 import StorageService from './services/storage/StorageService.js';
+import ProducerService from './services/rabbitmq/ProducerService.js';
 
 // --- IMPORTS: VALIDATORS ---
 import AlbumsValidator from './validators/albums/index.js';
@@ -36,6 +38,7 @@ import AuthenticationsValidator from './validators/authentications/index.js';
 import PlaylistsValidator from './validators/playlists/index.js';
 import CollaborationsValidator from './validators/collaborations/index.js';
 import UploadsValidator from './validators/uploads/index.js';
+import ExportsValidator from './validators/exports/index.js';
 
 // --- IMPORTS: OTHERS ---
 import TokenManager from './tokenize/TokenManager.js';
@@ -192,6 +195,14 @@ const init = async () => {
     plugin: likesPlugin,
     options: {
       service: albumsService,
+    },
+  },
+  {
+    plugin: exportsPlugin,
+    options: {
+      service: ProducerService,
+      validator: ExportsValidator,
+      playlistsService: playlistsService,
     },
   },
 ]);

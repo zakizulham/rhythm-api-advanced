@@ -13,7 +13,7 @@ class StorageService {
   }
 
   writeFile(file, meta) {
-    const filename = +new Date() + metadata.filename;
+    const filename = +new Date() + meta.filename;
     const path = `${this._folder}/${filename}`;
 
     const fileStream = fs.createWriteStream(path);

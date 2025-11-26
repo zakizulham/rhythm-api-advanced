@@ -34,3 +34,5 @@ class MailSender {
         return this.transporter.sendMail(message);
     }
 }
+
+export default MailSender;

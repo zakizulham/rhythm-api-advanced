@@ -1,7 +1,5 @@
 // migrations/1700000000002_add-cover-to-albums-and-create-likes-table.js
 
-/* eslint-disable camelcase */
-
 export const up = (pgm) => {
   // 1. Nambah kolom coverUrl ke tabel albums
   pgm.addColumn('albums', {

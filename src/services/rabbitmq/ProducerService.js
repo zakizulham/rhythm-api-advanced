@@ -6,7 +6,7 @@ import config from '../../utils/config.js';
 const ProducerService = {
     sendMessage: async (queue, message) => {
         // Bikin koneksi ke RabbitMQ server
-        const connection = await amqp.connect(config.rabbitmq.server);
+        const connection = await amqp.connect(config.rabbitMQ.server);
 
         // Bikin channel
         const channel = await connection.createChannel();
@@ -15,9 +15,11 @@ const ProducerService = {
         await channel.assertQueue(queue, { durable: true });
 
         // Kirim pesan (sebagai Buffer)
-        channnel.sendToQueue(queue, Buffer.from(message));
+        channel.sendToQueue(queue, Buffer.from(message));
 
         // Tutup koneksi setelah satu detik
         setTimeout(() => { connection.close(); }, 1000);
     },
 };
+
+export default ProducerService;

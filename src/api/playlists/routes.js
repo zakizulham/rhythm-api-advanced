@@ -5,7 +5,7 @@ const routes = (handler) => [
     path: '/playlists',
     handler: (request, h) => handler.postPlaylistHandler(request, h),
     options: {
-      auth: 'openmusic_jwt', // Rute ini butuh autentikasi
+      auth: 'openmusic_jwt',
     },
   },
   {
