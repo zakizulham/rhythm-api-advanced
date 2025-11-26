@@ -4,7 +4,7 @@ class LikesHandler {
     this._service = service;
   }
 
-  async postLikeHandler(request, h) {
+  async postAlbumLikeHandler(request, h) {
     const { id: albumId } = request.params;
     const { id: credentialId } = request.auth.credentials;
 
@@ -18,7 +18,7 @@ class LikesHandler {
     return response;
   }
 
-  async deleteLikeHandler(request) {
+  async deleteAlbumLikeHandler(request) {
     const { id: albumId } = request.params;
     const { id: credentialId } = request.auth.credentials;
 
@@ -30,7 +30,7 @@ class LikesHandler {
     };
   }
 
-  async getLikesHandler(request, h) {
+  async getAlbumLikesHandler(request, h) {
     const { id: albumId } = request.params;
     const { likes, isCache } = await this._service.getAlbumLikes(albumId);
 

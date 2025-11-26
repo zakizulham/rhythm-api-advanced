@@ -9,17 +9,17 @@ const routes = (handler) => [
     },
   },
   {
+    method: 'GET',
+    path: '/albums/{id}/likes',
+    handler: (request, h) => handler.getAlbumLikesHandler(request, h),
+  },
+  {
     method: 'DELETE',
     path: '/albums/{id}/likes',
     handler: (request) => handler.deleteAlbumLikeHandler(request),
     options: {
       auth: 'openmusic_jwt',
     },
-  },
-  {
-    method: 'GET',
-    path: '/albums/{id}/likes',
-    handler: (request, h) => handler.getAlbumLikesHandler(request, h),
   },
 ];
 

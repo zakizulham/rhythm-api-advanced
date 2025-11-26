@@ -2,16 +2,17 @@
 import { nanoid } from 'nanoid';
 import InvariantError from '../../exceptions/InvariantError.js';
 import NotFoundError from '../../exceptions/NotFoundError.js';
-import ClientError from '../../exceptions/ClientError.js'; // Kita butuh ini buat cek error like ganda
+import ClientError from '../../exceptions/ClientError.js'; // Jangan lupa ini
 import pool from './Pool.js';
 
 class AlbumsService {
-  // 1. TERIMA cacheService DI SINI
+  // UPDATE CONSTRUCTOR: Terima cacheService
   constructor(cacheService) {
     this._pool = pool;
     this._cacheService = cacheService;
   }
 
+  // --- FITUR V2 (JANGAN DIUBAH) ---
   async addAlbum({ name, year }) {
     const id = `album-${nanoid(16)}`;
     const query = {
@@ -28,7 +29,7 @@ class AlbumsService {
 
   async getAlbumById(id) {
     const query = {
-      // Sekalian ambil coverUrl (karena kolomnya udah ada sekarang)
+      // Update query buat ambil coverUrl juga (buat persiapan V3)
       text: 'SELECT id, name, year, "coverUrl" FROM albums WHERE id = $1',
       values: [id],
     };
@@ -64,34 +65,42 @@ class AlbumsService {
     }
   }
 
-  // --- FITUR LIKES V3 ---
+  async addAlbumCoverById(id, coverUrl) {
+    const query = {
+      text: 'UPDATE albums SET "coverUrl" = $1 WHERE id = $2 RETURNING id',
+      values: [coverUrl, id],
+    };
+    const result = await this._pool.query(query);
+    if (!result.rowCount) {
+      throw new NotFoundError('Gagal memperbarui cover. Album tidak ditemukan');
+    }
+  }
+
+  // --- FITUR LIKES V3 (INI YANG BARU) ---
 
   async addAlbumLike(albumId, userId) {
-    // Cek dulu albumnya ada gak
-    await this.getAlbumById(albumId);
+    await this.getAlbumById(albumId); // Cek album ada
 
-    // Cek udah like belum (Query SQL langsung cek constraint unique)
     const id = `like-${nanoid(16)}`;
     const query = {
-      text: 'INSERT INTO user_album_likes VALUES($1, $2, $3) RETURNING id',
+      // Pake user_id dan album_id (snake_case sesuai migrasi)
+      text: 'INSERT INTO user_album_likes (id, user_id, album_id) VALUES($1, $2, $3) RETURNING id',
       values: [id, userId, albumId],
     };
 
     try {
       const result = await this._pool.query(query);
       if (!result.rows[0].id) {
-        throw new InvariantError('Like gagal ditambahkan');
+        throw new InvariantError('Gagal menyukai album');
       }
+      // Hapus cache
+      await this._cacheService.delete(`likes:${albumId}`);
     } catch (error) {
-      // Tangkep error constraint unique dari Postgres
-      if (error.constraint === 'unique_user_album_likes') { 
+      if (error.constraint === 'unique_user_album_likes') {
         throw new InvariantError('Anda sudah menyukai album ini');
       }
       throw error;
     }
-
-    // HAPUS CACHE (biar data baru ke-load nanti)
-    await this._cacheService.delete(`likes:${albumId}`);
   }
 
   async deleteAlbumLike(albumId, userId) {
@@ -103,36 +112,34 @@ class AlbumsService {
     const result = await this._pool.query(query);
 
     if (!result.rowCount) {
-      throw new NotFoundError('Like gagal dihapus. Anda belum menyukai album ini');
+      throw new NotFoundError('Gagal membatalkan like. Anda belum menyukai album ini');
     }
 
-    // HAPUS CACHE
+    // Hapus cache
     await this._cacheService.delete(`likes:${albumId}`);
   }
 
   async getAlbumLikes(albumId) {
     try {
-      // 1. Coba ambil dari Redis
+      // 1. Cek Cache
       const result = await this._cacheService.get(`likes:${albumId}`);
       return {
         likes: JSON.parse(result),
-        isCache: true, // Penanda buat header X-Data-Source
+        isCache: true,
       };
     } catch (error) {
-      // 2. Kalo gagal/gak ada, ambil dari DB
-      
-      // Cek album ada gak
-      await this.getAlbumById(albumId);
+      // 2. Ambil DB
+      await this.getAlbumById(albumId); // Cek album ada
 
       const query = {
         text: 'SELECT COUNT(*) FROM user_album_likes WHERE album_id = $1',
         values: [albumId],
       };
-      
+
       const result = await this._pool.query(query);
       const likes = parseInt(result.rows[0].count, 10);
 
-      // 3. Simpen ke Redis (30 menit)
+      // 3. Simpan Cache
       await this._cacheService.set(`likes:${albumId}`, JSON.stringify(likes));
 
       return {

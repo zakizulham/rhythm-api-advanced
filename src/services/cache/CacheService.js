@@ -4,10 +4,9 @@ import config from '../../utils/config.js';
 
 class CacheService {
   constructor() {
-    // Bikin koneksi ke Redis
     this._client = redis.createClient({
       socket: {
-        host: config.redis.host,
+        url: config.redis.host,
       },
     });
 
@@ -15,12 +14,11 @@ class CacheService {
       console.error(error);
     });
 
-    // Connect manual di v4
     this._client.connect();
   }
 
   // Fungsi buat nyimpen data ke cache
-  async set(key, value, expirationInSecond = 1800) { // 1800 detik = 30 menit
+  async set(key, value, expirationInSecond = 1800) { // 30 menit
     await this._client.set(key, value, {
       EX: expirationInSecond,
     });
@@ -29,7 +27,7 @@ class CacheService {
   // Fungsi buat ngambil data dari cache
   async get(key) {
     const result = await this._client.get(key);
-    if (result === null) throw new Error('Cache tidak ditemukan'); // Biar ditangkep 'catch'
+    if (result === null) throw new Error('Cache tidak ditemukan');
     return result;
   }
 
