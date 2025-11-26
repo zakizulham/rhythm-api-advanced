@@ -1,4 +1,4 @@
-[![Status](https://img.shields.io/badge/Status-Under%20Construction-yellow.svg)](https://github.com/zakizulham/rhythm-api-advanced/graphs/commit-activity)
+[![Status](https://img.shields.io/badge/Status-Completed-brightgreen.svg)](https://github.com/zakizulham/rhythm-api-advanced/graphs/commit-activity)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-v22+-darkgreen.svg)](https://nodejs.org/)
 [![Hapi.js](https://img.shields.io/badge/Framework-Hapi.js-orange.svg)](https://hapi.dev/)
