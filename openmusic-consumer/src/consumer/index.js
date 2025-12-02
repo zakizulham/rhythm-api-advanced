@@ -1,16 +1,13 @@
-// src/consumer/index.js
 import 'dotenv/config';
 import amqp from 'amqplib';
 import PlaylistsService from '../services/postgres/PlaylistsService.js';
-import CollaborationsService from '../services/postgres/CollaborationsService.js';
 import MailSender from '../services/mail/MailSender.js';
 import Listener from './Listener.js';
 import config from '../utils/config.js';
 
 const init = async () => {
   // 1. Inisialisasi Service
-  const collaborationsService = new CollaborationsService();
-  const playlistsService = new PlaylistsService(collaborationsService);
+  const playlistsService = new PlaylistsService();
   const mailSender = new MailSender();
   
   const listener = new Listener(playlistsService, mailSender);
