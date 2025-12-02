@@ -31,6 +31,7 @@ Thumbs.db
 
 # Uploads (User Generated Content)
 /public/uploads/*
+openmusic-api/public/uploads/*
 
 # pertahankan struktur foldernya biar ada
 !/public/uploads/.gitkeep
