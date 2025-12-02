@@ -9,6 +9,8 @@
 
 # Dependencies
 /node_modules
+openmusic-api/node_modules
+openmusic-consumer/node_modules
 
 # Logs
 *.log
