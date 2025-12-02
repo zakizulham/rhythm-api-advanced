@@ -9,125 +9,116 @@
 
 # rhythm-api-advanced
 
-Repositori ini berisi *back-end* API untuk layanan streaming musik "OpenMusic". Ini adalah evolusi dari V1 dan V2, dibangun di atas fondasi Hapi yang modular dan diperluas untuk menangani skenario *back-end* yang kompleks dan beperforma tinggi.
+Repositori ini berisi solusi *back-end* untuk layanan streaming musik "OpenMusic". Proyek ini merupakan implementasi tingkat lanjut yang memisahkan tanggung jawab antara **RESTful API (Producer)** dan **Message Consumer** untuk menangani proses bisnis yang berat secara asinkron.
 
-Proyek V3 ini menambahkan tiga fitur krusial yang umum di industri:
-1.  **Pemrosesan Asinkron (Asynchronous):** Ekspor *playlist* ke email ditangani oleh *message broker* (RabbitMQ) dan *service consumer* terpisah, sehingga API bisa memberi respons instan.
-2.  **Caching:** Permintaan *high-traffic* (jumlah *likes* album) ditangani oleh Redis untuk mengurangi beban *database* secara drastis.
-3.  **File Upload:** Pengguna kini dapat mengunggah sampul album, yang diproses dan disajikan oleh API.
+Proyek V3 ini menambahkan tiga fitur krusial standar industri:
+1.  **Pemrosesan Asinkron (Asynchronous):** Ekspor *playlist* ke email ditangani oleh *message broker* (RabbitMQ) dan aplikasi *consumer* terpisah.
+2.  **Caching:** Permintaan *high-traffic* (jumlah *likes* album) ditangani oleh Redis untuk mengurangi beban *database*.
+3.  **File Upload:** Pengguna dapat mengunggah sampul album yang disimpan di server lokal.
 
-## Arsitektur & Prinsip Desain
+## Arsitektur & Struktur Proyek
 
-API ini dirancang menggunakan arsitektur berlapis (*layered architecture*) yang bersih dan modular.
+Proyek ini dipecah menjadi dua aplikasi independen yang saling berkomunikasi melalui RabbitMQ.
 
-API dan Consumer memiliki package.json sendiri dan saling berkomunikasi melalui RabbitMQ untuk fitur eksport playlist.
+```
+.
+├── openmusic-api/        # Aplikasi Utama (Producer - Hapi.js)
+│   ├── src/
+│   ├── migrations/
+│   ├── package.json      # Dependencies khusus API
+│   └── ...
+├── openmusic-consumer/   # Aplikasi Worker (Consumer - Node.js)
+│   ├── src/
+│   ├── package.json      # Dependencies khusus Consumer
+│   └── ...
+├── docker-compose.yml    # Infrastruktur (Postgres, Redis, RabbitMQ)
+└── README.md
+```
 
-
-* **Plugin Architecture (via Hapi):** Setiap *resource* utama (Albums, Songs, Users, Playlists, dll.) diisolasi ke dalam Hapi Plugin-nya sendiri untuk modularitas maksimum.
-* **Service Layer:** Semua logika bisnis dan kueri *database* diekstraksi ke dalam *Service* (`services/`). *Handler* tetap "tipis" dan hanya bertugas mengorkestrasi validasi, pemanggilan *service*, dan respons.
-* **Producer-Consumer Pattern:** Untuk tugas berat (ekspor playlist & kirim email), API utama (`server.js`) bertindak sebagai **Producer** yang hanya mengirim "pesan" (berisi `playlistId` dan `targetEmail`) ke **RabbitMQ**. *Service* **Consumer** (`consumer.js`) yang berjalan terpisah mendengarkan antrian, mengambil data dari *database*, dan mengirim email.
-* **Cache-Aside Pattern:** Untuk `GET /albums/{id}/likes`, *service* akan terlebih dahulu mencoba mengambil data jumlah *likes* dari **Redis**. Jika data tidak ada (*cache miss*), *service* akan mengambil data dari **PostgreSQL**, menyimpannya di Redis dengan masa kedaluwarsa (TTL), lalu mengembalikannya ke pengguna.
-* **Centralized Error Handling:** Menggunakan *event extension* `onPreResponse` Hapi untuk menangkap semua *error* (Client & Server) secara terpusat, memastikan format respons *error* selalu konsisten.
-* **Static File Serving:** Menggunakan *plugin* `@hapi/inert` untuk menyajikan *file cover* album yang telah diunggah dari *storage* lokal.
+* **API Service (`openmusic-api`):** Menangani HTTP Request, Autentikasi, CRUD Database, Upload File, dan Caching. Bertindak sebagai **Producer** yang mengirim pesan ke RabbitMQ saat ada permintaan ekspor.
+* **Consumer Service (`openmusic-consumer`):** Aplikasi yang berjalan di latar belakang (*background process*). Bertindak sebagai **Consumer** yang mendengarkan antrean RabbitMQ, mengambil data playlist dari database, dan mengirimkannya via Email (Nodemailer).
 
 ## Fitur & Endpoint
 
-Repositori ini mencakup semua fitur dari V1, V2, dan V3.
-
 ### Fitur V1 & V2 (Dasar)
-* **Users (`/users`):** Registrasi pengguna (`bcrypt`).
-* **Authentications (`/authentications`):** Login/Logout/Refresh Token (`@hapi/jwt`).
-* **Albums (`/albums`):** CRUD penuh.
-* **Songs (`/songs`):** CRUD penuh dengan *query parameter* pencarian (`?title`, `?performer`).
-* **Playlists (`/playlists`):** CRUD penuh untuk *playlist* milik pengguna.
-* **PlaylistSongs (`/playlists/{id}/songs`):** Menambah dan menghapus lagu dari *playlist*.
-* **Collaborations (`/collaborations`):** Menambah dan menghapus kolaborator *playlist*.
-* **PlaylistActivities (`/playlists/{id}/activities`):** Melihat riwayat aktivitas *playlist*.
+* **Users & Auth:** Registrasi, Login, Logout, Refresh Token.
+* **Music Data:** CRUD Album & Lagu.
+* **User Features:** Playlist, Menambah Lagu ke Playlist, Kolaborasi.
+* **Activities:** Riwayat aktivitas playlist.
 
 ### Fitur Baru (V3)
-* **Exports (`/export/playlists/{id}`):**
-    * `POST`: Meminta ekspor *playlist* ke email. API akan mengirim pesan ke RabbitMQ dan merespons `201` (Accepted) secara instan.
-* **Album Covers (`/albums/{id}/covers`):**
-    * `POST`: Mengunggah *file* gambar (`multipart/form-data`) sebagai sampul album. Disimpan ke *storage* lokal.
-    * `GET /albums/{id}`: Sekarang mengembalikan *field* `coverUrl` yang menunjuk ke *file* statis yang disajikan oleh Hapi (`@hapi/inert`).
-* **Album Likes (`/albums/{id}/likes`):**
-    * `POST`: Menambah *like* ke album (membutuhkan autentikasi).
-    * `DELETE`: Menghapus *like* dari album (membutuhkan autentikasi).
-    * `GET`: Mengambil jumlah *like* untuk album. Respons ini **disajikan dari cache Redis (TTL 30 menit)** untuk performa tinggi. *Cache* akan otomatis dihapus (`DELETE`) setiap kali ada `POST` atau `DELETE` baru.
+* **Exports (`POST /export/playlists/{id}`):** Meminta ekspor playlist. API merespons `201 Accepted` dan tugas diserahkan ke *Consumer*.
+* **Album Covers (`POST /albums/{id}/covers`):** Upload sampul album (Max 512KB, Images only).
+* **Album Likes:** Fitur like/unlike album dengan implementasi **Server-Side Caching (Redis)**. Cache akan kedaluwarsa dalam 30 menit atau dihapus saat ada perubahan data like.
 
 ## Teknologi Utama
 
-* **Framework:** Hapi.js (`@hapi/hapi`)
-* **Database:** PostgreSQL (`pg`)
-* **Message Broker:** RabbitMQ (`amqplib`)
-* **Cache:** Redis (`redis`)
-* **Migrasi:** `node-pg-migrate`
-* **Autentikasi:** `@hapi/jwt` (JWT)
-* **Validasi:** `Joi`
-* **Password Hashing:** `bcrypt`
-* **Email:** `nodemailer`
-* **File Handling:** `@hapi/inert` (Serving), File System (Storage)
-* **Environment:** `dotenv`
-* **Dev Tools:** `nodemon`, `eslint`
+* **Core:** Node.js (v18+)
+* **Framework:** Hapi.js
+* **Database:** PostgreSQL
+* **Message Broker:** RabbitMQ
+* **Cache:** Redis
+* **Tools:** ESLint, Nodemon, node-pg-migrate
 
 ## Replikasi Lokal
 
-Untuk menjalankan proyek ini, Anda **wajib** memiliki **Node.js (v22+)** dan **Docker Desktop** yang sudah terinstal dan berjalan.
+Untuk menjalankan proyek ini secara lokal, pastikan **Node.js**, **Docker Desktop**, dan **Git** sudah terinstal.
 
-### 1. Setup Awal
+### 1. Setup Infrastruktur
+Jalankan container untuk database, cache, dan message broker.
+
 ```bash
-# 1. Clone repositori
-git clone https://github.com/zakizulham/rhythm-api-advanced.git
-cd rhythm-api-advanced
-
-# 2. Install dependencies
-npm install
+# Di root folder repositori
+docker-compose up -d
 ```
 
-### 2. Setup Database & Services
-```bash
-# 3. Jalankan semua service (Postgres, Redis, RabbitMQ)
-docker-compose up -d
+### 2. Menjalankan API (Producer)
+Buka terminal baru.
 
-# 4. Salin file environment example
-# PENTING: Buka file .env dan isi kredensial SMTP_USER & SMTP_PASSWORD Anda
-# (Rekomendasi: gunakan kredensial Mailtrap.io untuk development)
+```bash
+# 1. Masuk ke folder API
+cd openmusic-api
+
+# 2. Install dependencies API
+npm install
+
+# 3. Setup Environment API
+# Salin .env.example ke .env dan sesuaikan isinya (SMTP, DB, RabbitMQ)
 cp .env.example .env
 
-# 5. Jalankan migrasi database untuk membuat semua tabel
+# 4. Jalankan Migrasi Database
 npm run migrate
-```
 
-### 3. Menjalankan Server
-Proyek ini terdiri dari **dua** proses Node.js yang harus berjalan bersamaan. Buka **dua terminal terpisah**.
-
-**Terminal 1: Menjalankan API (Producer)**
-```bash
-# 6. Jalankan server API utama (Producer)
+# 5. Jalankan Server API
 npm run start-dev
-# Server akan berjalan di http://localhost:5000
+# Server berjalan di http://localhost:5000
 ```
 
-**Terminal 2: Menjalankan Consumer**
+### 3. Menjalankan Consumer
+Buka terminal baru lagi (biarkan terminal API tetap jalan).
+
 ```bash
-# 7. Jalankan service consumer (Worker)
-# (Script ini perlu Anda tambahkan ke package.json: "start-consumer": "node src/consumer.js")
-npm run start-consumer
-# Consumer akan mendengarkan pesan dari RabbitMQ
+# 1. Masuk ke folder Consumer
+cd openmusic-consumer
+
+# 2. Install dependencies Consumer
+npm install
+
+# 3. Setup Environment Consumer
+# Salin .env.example ke .env
+# PENTING: Pastikan konfigurasi SMTP dan RabbitMQ SAMA dengan API
+cp .env.example .env
+
+# 4. Jalankan Consumer
+npm run start
 ```
 
 ### 4. Pengujian
-```bash
-# 8. Menjalankan linter
-npm run lint
+Gunakan Postman Collection V3 yang telah disediakan.
 
-# 9. Menjalankan tes otomatisasi API
-# - Impor collection Postman "OpenMusic API V3 Test.zip"
-# - Set environment "OpenMusic API Test"
-# - Pastikan mengisi 'exportEmail' di environment Postman dengan email Anda
-# - Konfigurasi file gambar untuk tes upload
-# - Jalankan Collection Runner.
-```
+1.  Import Collection dan Environment ke Postman.
+2.  Isi variabel `exportEmail` di Environment Postman dengan email tujuan (atau email sandbox Mailtrap).
+3.  Jalankan pengujian.
 
 ## Lisensi
 Proyek ini dilisensikan di bawah [MIT License](LICENSE).
