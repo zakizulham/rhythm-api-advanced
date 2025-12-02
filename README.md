@@ -1,4 +1,4 @@
-[![Status](https://img.shields.io/badge/Status-Completed-brightgreen.svg)](https://github.com/zakizulham/rhythm-api-advanced/graphs/commit-activity)
+[![Status](https://img.shields.io/badge/Status-Under%20Maintenance-orange.svg)](https://github.com/zakizulham/rhythm-api-advanced/graphs/commit-activity)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-v22+-darkgreen.svg)](https://nodejs.org/)
 [![Hapi.js](https://img.shields.io/badge/Framework-Hapi.js-orange.svg)](https://hapi.dev/)
@@ -20,6 +20,7 @@ Proyek V3 ini menambahkan tiga fitur krusial yang umum di industri:
 
 API ini dirancang menggunakan arsitektur berlapis (*layered architecture*) yang bersih dan modular.
 
+API dan Consumer memiliki package.json sendiri dan saling berkomunikasi melalui RabbitMQ untuk fitur eksport playlist.
 
 
 * **Plugin Architecture (via Hapi):** Setiap *resource* utama (Albums, Songs, Users, Playlists, dll.) diisolasi ke dalam Hapi Plugin-nya sendiri untuk modularitas maksimum.
