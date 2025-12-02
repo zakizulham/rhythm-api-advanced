@@ -1,38 +1,22 @@
 {
-  "name": "openmusic-api-v3",
-  "version": "3.0.0",
-  "main": "index.js",
+  "name": "openmusic-consumer",
+  "version": "1.0.0",
+  "description": "Consumer for OpenMusic API",
   "type": "module",
+  "main": "src/consumer/index.js",
   "scripts": {
-    "start": "node src/server.js",
-    "start-dev": "nodemon src/server.js",
-    "lint": "eslint .",
-    "migrate": "node-pg-migrate up",
-    "start-consumer": "node src/consumer/index.js"
+    "start": "node src/consumer/index.js",
+    "lint": "eslint ."
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
   "dependencies": {
-    "@hapi/hapi": "^21.4.4",
-    "@hapi/inert": "^7.1.0",
-    "@hapi/jwt": "^3.2.1",
     "amqplib": "^0.10.9",
-    "bcrypt": "^6.0.0",
     "dotenv": "^17.2.3",
-    "fs-extra": "^11.3.2",
-    "joi": "^18.0.1",
-    "nanoid": "^5.1.6",
-    "node-pg-migrate": "^8.0.3",
     "nodemailer": "^7.0.10",
-    "pg": "^8.16.3",
-    "redis": "^5.9.0"
+    "pg": "^8.16.3"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
     "eslint": "^9.39.1",
-    "globals": "^16.5.0",
-    "nodemon": "^3.1.10"
+    "globals": "^16.5.0"
   }
 }
