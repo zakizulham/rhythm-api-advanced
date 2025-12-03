@@ -28,9 +28,13 @@ class PlaylistsService {
     };
     const songsResult = await this._pool.query(songsQuery);
 
-    const playlist = playlistResult.rows[0];
-    playlist.songs = songsResult.rows;
-    return playlist;
+    return {
+      playlist: {
+        id: playlistResult.rows[0].id,
+        name: playlistResult.rows[0].name,
+        songs: songsResult.rows,
+      },
+    };
   }
 }
 
